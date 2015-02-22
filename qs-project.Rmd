@@ -134,7 +134,7 @@ print(vi[1:5, ])
 Prediction
 ----------
 
-We'll use the Random Forest model to predict the `nrow(testing)` cases
+We'll use the Random Forest model to predict the `r nrow(testing)` `testing` cases
 ```{r, cache = TRUE, echo = FALSE}
 pml_write_files = function(x) {
   n = length(x)
