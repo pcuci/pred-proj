@@ -1,0 +1,153 @@
+Course Project - Practical Machine Learning
+===========================================
+
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement – a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. In this project, the goal is  to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways. More information is available from the website here:  [http://groupware.les.inf.puc-rio.br/har](http://groupware.les.inf.puc-rio.br/har).
+
+Libraries
+---------
+
+Import libraries needed for analysis.
+
+```{r, cache = TRUE}
+# Loading required libraries
+#install.packages("caret")
+#install.packages("rpart")
+#install.packages("corrplot")
+#install.packages("randomForest")
+#install.packages("parallel")
+#install.packages("doParallel")
+library(parallel)
+library(doParallel)
+library(caret)
+library(rpart)
+library(corrplot)
+library(kernlab)
+library(randomForest)
+library(parallel)
+library(doParallel)
+library(knitr)
+```
+
+Load Data
+---------
+
+The QS data has already been split in `training` and `testing` datasets
+
+1. `training` data available from [https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv](https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv)
+1. `testing` data available from [https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv](https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv)
+
+```{r, cache = TRUE}
+# Saved data files in ../data (outside the git repo)
+# Load both training and testing datasets
+# Missing values to be loaded in as NA's: "#DIV/0!", "", or "NA"
+training <- read.csv("../data/pml-training.csv", header = TRUE, na.strings = c("NA", "#DIV/0!", ""))
+testing  <- read.csv("../data/pml-testing.csv", header = TRUE, na.strings = c("NA", "#DIV/0!", ""))
+dim(training)
+dim(testing)
+```
+
+Tidy Data
+---------
+
+Remove columns with missing data from both `testing` and `training` datasets since they have hardly any data
+```{r, cache = TRUE}
+columnswithdata <- which(apply(training, 2, function(x) {sum(is.na(x))}) == 0)
+training <- training[, columnswithdata]
+testing <- testing[, columnswithdata]
+```
+
+Looking at the nature of the data, we notice the first 7 columns have no predictive ability, we therefore remove them.
+```{r, cache = TRUE}
+# Removing irrelevant columns: "X", "user_name", "raw_timestamp_part_1", "raw_timestamp_part_2", "cvtd_timestamp", "new_window", and "num_window"
+training <- training[, -c(1:7)]
+testing <- testing[, -c(1:7)]
+```
+Fantastic, we're down to 53 from 160 columns.
+
+`classe` variable should actually be a factor
+```{r, cache = TRUE}
+training$classe <- factor(training$classe)
+```
+
+Validation set
+-------------------------------
+Split the data: 60% for training, 40% for validation testing
+
+```{r, cache = TRUE}
+trainIndex <- createDataPartition(y = training$classe, p = 0.6, list = FALSE)
+trainingData <- training[trainIndex, ]
+validationData <- training[-trainIndex, ]
+```
+
+Try different models
+-------------------------------
+Explore three models:
+1. Random Forest `"rf"`
+1. Generalized Boosted Regression Model `"gbm"`
+1. Linear Discriminant Analysis `"lda"`
+
+```{r, cache = TRUE}
+set.seed(54321)
+
+cl <- makeCluster(detectCores() - 1)
+registerDoParallel(cl)
+ctrl <- trainControl(classProbs = TRUE, savePredictions = TRUE, allowParallel = TRUE, number = 3)
+
+rf.model <- train(classe ~ ., method = "rf", data = trainingData, trControl = ctrl)
+gbm.model <- train(classe ~ ., method = "gbm", data = trainingData, trControl = ctrl)
+lda.model <- train(classe ~ ., method = "lda", data = trainingData, trControl = ctrl) 
+```
+
+Let's now validate using the remaining dataset and have a look at the confusion matrices
+
+```{r, cache = TRUE}
+rf.pred <- predict(rf.model, validationData)
+rf.c <- confusionMatrix(rf.pred, validationData$classe)
+
+gbm.pred <- predict(gbm.model, validationData)
+gbm.c <- confusionMatrix(gbm.pred, validationData$classe)
+
+lda.pred <- predict(lda.model, validationData)
+lda.c <- confusionMatrix(lda.pred, validationData$classe)
+print("Random Forest")
+print(rf.c)
+print("Generalized Boosted Regression")
+print(gbm.c)
+print("Linear Discriminant Analysis")
+print(lda.c)
+
+accuracies <- c(rf.c$overall[[1]], gbm.c$overall[[1]], lda.c$overall[[1]])
+names(accuracies) <- c("Random Forest", "Generalized Boosted Regression", "Linear Discriminant Analysis")
+accuracies
+```
+
+For the Random Forest model - the most promising of the three - we notice `roll_belt` seems to be the most important predictor
+
+```{r, cache = TRUE}
+vi = varImp(rf.model$finalModel)
+vi$var <- rownames(vi)
+rownames(vi) <- NULL
+vi = as.data.frame(vi[with(vi, order(vi$Overall, decreasing = TRUE)), ])
+print(vi[1:5, ])
+```
+
+Prediction
+----------
+
+We'll use the Random Forest model to predict the `nrow(testing)` cases
+```{r, cache = TRUE, echo = FALSE}
+pml_write_files = function(x) {
+  n = length(x)
+  for(i in 1:n){
+    filename = paste0("answers/problem_id_", i, ".txt")
+    write.table(x[i], file = filename, quote = FALSE, row.names = FALSE, col.names = FALSE)
+  }
+}
+```
+
+```{r, cache = TRUE}
+prediction <- predict(rf.model, testing)
+print(prediction)
+answers <- as.vector(prediction)
+pml_write_files(answers)
+```
