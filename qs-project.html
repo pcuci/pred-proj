@@ -131,7 +131,12 @@ validationData &lt;- training[-trainIndex, ]</code></pre>
 </div>
 <div id="try-different-models" class="section level2">
 <h2>Try different models</h2>
-<p>Explore three models: 1. Random Forest <code>&quot;rf&quot;</code> 1. Generalized Boosted Regression Model <code>&quot;gbm&quot;</code> 1. Linear Discriminant Analysis <code>&quot;lda&quot;</code></p>
+<p>Explore three models:</p>
+<ol style="list-style-type: decimal">
+<li>Random Forest <code>&quot;rf&quot;</code></li>
+<li>Generalized Boosted Regression Model <code>&quot;gbm&quot;</code></li>
+<li>Linear Discriminant Analysis <code>&quot;lda&quot;</code></li>
+</ol>
 <pre class="r"><code>set.seed(54321)
 
 cl &lt;- makeCluster(detectCores() - 1)
