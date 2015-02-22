@@ -82,6 +82,7 @@ validationData <- training[-trainIndex, ]
 Try different models
 -------------------------------
 Explore three models:
+
 1. Random Forest `"rf"`
 1. Generalized Boosted Regression Model `"gbm"`
 1. Linear Discriminant Analysis `"lda"`
